@@ -8,13 +8,13 @@ ZSH_THEME="crunch"
 # Load oh-my-zsh
 source $ZSH/oh-my-zsh.sh
 
+setopt NO_BEEP
 # Plugins
 plugins=(
   git           # Git plugin
   zsh-autosuggestions  # Autosuggestions
   zsh-syntax-highlighting  # Syntax highlighting
   z               # Directory jumping
-  sudo            # Enables sudo to be used as a prefix for the previous command
   web-search      # Search the web from the command line
   command-not-found  # Suggests commands when they are not found
 )
@@ -22,14 +22,6 @@ plugins=(
 # Load plugins
 source $ZSH_CUSTOM/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# Custom Aliases
-alias ll='ls -la'
-alias gs='git status'
-alias gd='git diff'
-alias gc='git commit'
-alias gp='git push'
-alias gpl='git pull'
 
 # Custom Functions
 function mkcd() {
@@ -69,8 +61,64 @@ fi
 
 # Other useful configurations
 setopt autocd  # Change directory just by typing its name
-setopt auto_pushd  # Automatically push directories onto the stack
-setopt pushd_ignore_dups  # Ignore duplicate directories in the stack
-setopt pushdminus  # List the contents of the directory stack with "dirs"
 setopt correct  # Correct command spelling
 
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+source <(fzf --zsh)
+
+alias cat='bat'
+
+# find file and open in vim
+fv() {
+  fzf --preview 'bat --color=always {}' \
+      --preview-window 'right:50%,border-left' \
+      --height 33% \
+      --info inline \
+      --layout reverse \
+      --print0 | xargs -0 -o vim
+}
+
+# find string in files and open in vim
+fsv() {
+  local rg_prefix='rg --column --line-number --no-heading --color=always --smart-case'
+  local initial_query="${*:-}"
+
+  : | fzf --ansi --disabled --query "$initial_query" \
+      --bind "start:reload:$rg_prefix {q}" \
+      --bind "change:reload:sleep 0.1; $rg_prefix {q} || true" \
+      --delimiter ':' \
+      --preview 'bat --color=always {1} --highlight-line {2}' \
+      --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
+      --bind 'enter:become(vim {1} +{2})'
+}
+
+# Search and cd into the selected directory with smaller height and preview
+fd() {
+  local dir
+  dir=$(find ${1:-.} -path '*/\.*' -prune -o -type d -print 2> /dev/null | fzf \
+    --height 33% \
+    --info inline \
+    --layout reverse \
+    --preview 'ls -la {}' \
+    --preview-window 'right:50%,border-left') &&
+  cd "$dir"
+}
+
+
+# pyenv setup
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+
+# Ensure the virtualenv plugin is initialized
+eval "$(pyenv virtualenv-init -)"
+
+alias G='function _G() { if [[ -z "$VIRTUAL_ENV" ]]; then pyenv activate openai_env; fi && python ~/gpt.py "$@" && if [[ -z "$VIRTUAL_ENV" ]]; then pyenv deactivate; fi }; _G'
+# export OPENAI_API_KEY=""
+
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+alias gs='git status'
